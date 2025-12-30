@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestion des Personnes </title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .main-container {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 30px;
+            margin: 20px auto;
+            max-width: 1200px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 3px solid #667eea;
+        }
+        .header h1 {
+            color: #667eea;
+            font-weight: bold;
+        }
+        .action-section {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+        }
+        .person-card {
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+        }
+        .person-card:hover {
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+            transform: translateX(5px);
+        }
+        .btn-custom {
+            background: #667eea;
+            color: white;
+            border: none;
+        }
+        .btn-custom:hover {
+            background: #5568d3;
+            color: white;
+        }
+        .alert-floating {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            min-width: 300px;
+            animation: slideIn 0.3s ease;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner-border {
+            color: #667eea;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        .empty-state i {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            opacity: 0.5;
+        }
+        .badge-age {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="main-container">
+            <div class="header">
+                <h1><i class="fas fa-users"></i> Gestion des Personnes</h1>
+                
+            </div>
+
+            <!-- Section de recherche -->
+            <div class="action-section">
+                <h4><i class="fas fa-search"></i> Rechercher une personne</h4>
+                <div class="row g-3">
+                    <div class="col-md-5">
+                        <input type="number" id="searchId" class="form-control" placeholder="Rechercher par ID (ex: 1, 2, 3...)">
+                    </div>
+                    <div class="col-md-5">
+                        <input type="text" id="searchName" class="form-control" placeholder="Rechercher par nom (ex: Ahmed)">
+                    </div>
+                    <div class="col-md-2">
+                        <button onclick="searchPerson()" class="btn btn-custom w-100">
+                            <i class="fas fa-search"></i> Chercher
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formulaire d'ajout/modification -->
+            <div class="action-section">
+                <h4 id="formTitle"><i class="fas fa-user-plus"></i> Ajouter une personne</h4>
+                <form id="personForm" onsubmit="savePerson(event)">
+                    <input type="hidden" id="personId">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Nom complet *</label>
+                            <input type="text" id="personName" class="form-control" placeholder="Ex: Ahmed Ben Salem" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Âge *</label>
+                            <input type="number" id="personAge" class="form-control" placeholder="Ex: 25" min="1" max="120" required>
+                        </div>
+                        <div class="col-md-12">
+                            <div class="btn-group w-100">
+                                <button type="submit" class="btn btn-custom">
+                                    <i class="fas fa-save"></i> <span id="submitBtnText">Ajouter</span>
+                                </button>
+                                <button type="button" onclick="resetForm()" class="btn btn-secondary">
+                                    <i class="fas fa-redo"></i> Annuler
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Bouton de rafraîchissement -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4><i class="fas fa-list"></i> Liste des personnes</h4>
+                <button onclick="loadPersons()" class="btn btn-custom">
+                    <i class="fas fa-sync-alt"></i> Actualiser
+                </button>
+            </div>
+
+            <!-- Zone de chargement -->
+            <div id="loadingZone" class="loading" style="display: none;">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Chargement...</span>
+                </div>
+                <p class="mt-2">Chargement des données...</p>
+            </div>
+
+            <!-- Liste des personnes -->
+            <div id="personsList"></div>
+        </div>
+    </div>
+
+    <!-- Zone d'alertes -->
+    <div id="alertZone"></div>
+
+    <script>
+        // ⚠️ CONFIGURATION - NE PAS OUBLIER DE DÉMARRER TOMCAT !
+        const API_BASE_URL = 'http://localhost:8085/tp333/api/users';
+        
+        let isEditMode = false;
+
+        // Charger toutes les personnes au démarrage
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPersons();
+        });
+
+        // Afficher une alerte
+        function showAlert(message, type = 'success') {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show alert-floating`;
+            alertDiv.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'danger' ? 'exclamation-circle' : 'info-circle'}"></i>
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            document.getElementById('alertZone').appendChild(alertDiv);
+            
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 4000);
+        }
+
+        // Charger toutes les personnes
+        async function loadPersons() {
+            const loadingZone = document.getElementById('loadingZone');
+            const personsList = document.getElementById('personsList');
+            
+            loadingZone.style.display = 'block';
+            personsList.innerHTML = '';
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/affiche`);
+                
+                if (!response.ok) {
+                    throw new Error('Erreur lors du chargement des personnes');
+                }
+
+                const persons = await response.json();
+                loadingZone.style.display = 'none';
+
+                if (!persons || persons.length === 0) {
+                    personsList.innerHTML = `
+                        <div class="empty-state">
+                            <i class="fas fa-user-slash"></i>
+                            <h5>Aucune personne trouvée</h5>
+                            <p>Commencez par ajouter une nouvelle personne ci-dessus</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                persons.forEach(person => {
+                    displayPerson(person);
+                });
+
+                showAlert(`${persons.length} personne(s) chargée(s)`, 'info');
+
+            } catch (error) {
+                loadingZone.style.display = 'none';
+                personsList.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle"></i>
+                        <strong>Erreur de connexion !</strong><br>
+                        Assurez-vous que:
+                        <ul class="mb-0 mt-2">
+                            <li>Tomcat est démarré</li>
+                            <li>Le projet tp333 est déployé</li>
+                            <li>L'URL est correcte: ${API_BASE_URL}/affiche</li>
+                            <li>La base de données MySQL est accessible</li>
+                        </ul>
+                    </div>
+                `;
+                showAlert('Erreur: ' + error.message, 'danger');
+                console.error('Erreur:', error);
+            }
+        }
+
+        // Afficher une personne dans la liste
+        function displayPerson(person) {
+            const personsList = document.getElementById('personsList');
+            
+            const card = document.createElement('div');
+            card.className = 'card person-card';
+            card.innerHTML = `
+                <div class="card-body">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h5 class="card-title mb-2">
+                                <i class="fas fa-user text-primary"></i> 
+                                ${person.name}
+                            </h5>
+                            <p class="card-text mb-0">
+                                <span class="badge badge-age">
+                                    <i class="fas fa-birthday-cake"></i> ${person.age} ans
+                                </span>
+                                <span class="badge bg-secondary ms-2">ID: ${person.id}</span>
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <button onclick="editPerson(${person.id})" class="btn btn-sm btn-warning me-2">
+                                <i class="fas fa-edit"></i> Modifier
+                            </button>
+                            <button onclick="deletePerson(${person.id}, '${person.name}')" class="btn btn-sm btn-danger">
+                                <i class="fas fa-trash"></i> Supprimer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            personsList.appendChild(card);
+        }
+
+        // Sauvegarder (ajouter ou modifier)
+        async function savePerson(event) {
+            event.preventDefault();
+
+            const id = document.getElementById('personId').value;
+            const name = document.getElementById('personName').value;
+            const age = parseInt(document.getElementById('personAge').value);
+
+            // Validation
+            if (!name || name.trim().length === 0) {
+                showAlert('Le nom ne peut pas être vide', 'warning');
+                return;
+            }
+
+            if (age <= 0 || age > 120) {
+                showAlert('L\'âge doit être entre 1 et 120', 'warning');
+                return;
+            }
+
+            const person = {
+                name: name,
+                age: age
+            };
+
+            try {
+                let response;
+                
+                if (isEditMode && id) {
+                    // Mode modification (PUT)
+                    person.id = parseInt(id);
+                    response = await fetch(`${API_BASE_URL}/update/${id}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(person)
+                    });
+                } else {
+                    // Mode ajout (POST)
+                    response = await fetch(`${API_BASE_URL}/add`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(person)
+                    });
+                }
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Erreur lors de la sauvegarde');
+                }
+
+                const result = await response.json();
+                
+                showAlert(
+                    isEditMode ? `✓ ${name} a été modifié(e) avec succès!` : `✓ ${name} a été ajouté(e) avec succès!`,
+                    'success'
+                );
+
+                resetForm();
+                loadPersons();
+
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'danger');
+                console.error('Erreur:', error);
+            }
+        }
+
+        // Éditer une personne
+        async function editPerson(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${id}`);
+                
+                if (!response.ok) {
+                    throw new Error('Personne introuvable');
+                }
+
+                const person = await response.json();
+
+                document.getElementById('personId').value = person.id;
+                document.getElementById('personName').value = person.name;
+                document.getElementById('personAge').value = person.age;
+
+                document.getElementById('formTitle').innerHTML = '<i class="fas fa-user-edit"></i> Modifier une personne';
+                document.getElementById('submitBtnText').textContent = 'Modifier';
+                
+                isEditMode = true;
+
+                // Scroll vers le formulaire
+                document.getElementById('personForm').scrollIntoView({ behavior: 'smooth', block: 'center' });
+                
+                showAlert(`Edition de: ${person.name}`, 'info');
+
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'danger');
+                console.error('Erreur:', error);
+            }
+        }
+
+        // Supprimer une personne
+        async function deletePerson(id, name) {
+            if (!confirm(`⚠️ Êtes-vous sûr de vouloir supprimer "${name}" ?\n\nCette action est irréversible.`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/remove/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || 'Erreur lors de la suppression');
+                }
+
+                showAlert(`✓ ${name} a été supprimé(e) avec succès!`, 'success');
+                loadPersons();
+
+            } catch (error) {
+                showAlert('Erreur: ' + error.message, 'danger');
+                console.error('Erreur:', error);
+            }
+        }
+
+        // Rechercher une personne
+        async function searchPerson() {
+            const searchId = document.getElementById('searchId').value;
+            const searchName = document.getElementById('searchName').value;
+
+            if (!searchId && !searchName) {
+                showAlert('Veuillez entrer un ID ou un nom à rechercher', 'warning');
+                return;
+            }
+
+            const personsList = document.getElementById('personsList');
+            personsList.innerHTML = '<div class="loading"><div class="spinner-border"></div></div>';
+
+            try {
+                let url;
+                
+                if (searchId) {
+                    url = `${API_BASE_URL}/${searchId}`;
+                } else {
+                    url = `${API_BASE_URL}/search?name=${encodeURIComponent(searchName)}`;
+                }
+
+                const response = await fetch(url);
+
+                if (!response.ok) {
+                    throw new Error('Personne non trouvée');
+                }
+
+                const result = await response.json();
+                personsList.innerHTML = '';
+
+                // Si c'est un tableau
+                if (Array.isArray(result)) {
+                    if (result.length === 0) {
+                        personsList.innerHTML = `
+                            <div class="alert alert-warning">
+                                <i class="fas fa-exclamation-triangle"></i> Aucun résultat trouvé pour "${searchName || searchId}"
+                            </div>
+                        `;
+                    } else {
+                        result.forEach(person => displayPerson(person));
+                        showAlert(`${result.length} résultat(s) trouvé(s)`, 'success');
+                    }
+                } else {
+                    // Si c'est un objet unique
+                    displayPerson(result);
+                    showAlert(`Personne trouvée: ${result.name}`, 'success');
+                }
+
+                // Réinitialiser les champs de recherche
+                document.getElementById('searchId').value = '';
+                document.getElementById('searchName').value = '';
+
+            } catch (error) {
+                personsList.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="fas fa-times-circle"></i> <strong>${error.message}</strong>
+                        <p class="mb-0 mt-2">La personne recherchée n'existe pas dans la base de données.</p>
+                    </div>
+                `;
+                showAlert('Erreur: ' + error.message, 'danger');
+                console.error('Erreur:', error);
+            }
+        }
+
+        // Réinitialiser le formulaire
+        function resetForm() {
+            document.getElementById('personForm').reset();
+            document.getElementById('personId').value = '';
+            document.getElementById('formTitle').innerHTML = '<i class="fas fa-user-plus"></i> Ajouter une personne';
+            document.getElementById('submitBtnText').textContent = 'Ajouter';
+            isEditMode = false;
+        }
+
+        // Permet de rechercher en appuyant sur Entrée
+        document.getElementById('searchId').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPerson();
+            }
+        });
+
+        document.getElementById('searchName').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchPerson();
+            }
+        });
+    </script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
