@@ -48,13 +48,4 @@ Application web frontend consommant le backend REST JAX-RS avec JDBC développé
 
 
 
-tp333/
-├── src/
-│   └── com.info/
-│       ├── db/
-│       ├── model/
-│       ├── router/
-│       └── service/
-└── WebContent/
-    └── index.html  ← Frontend
-```
+
